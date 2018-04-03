@@ -20,6 +20,9 @@ std::string startMarker;
 std::string endMarker;
 BOOL outOfROIPhase = false;
 
+
+
+
 std::ostream * out = &cerr;
 LOCALVAR std::ofstream outs;
 FILTER filter;
@@ -27,10 +30,7 @@ FILTER filter;
 // Command line switches
 /* ===================================================================== */
 KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE,  "pintool",
-    "o", "", "specify file name for MyPinTool output");
-
-KNOB<BOOL>   KnobCount(KNOB_MODE_WRITEONCE,  "pintool",
-    "count", "1", "count instructions, basic blocks and threads in the application");
+    "o", "", "specify file name for SyncFault output");
 
 
 KNOB<std::string>   KnobStartMarker(KNOB_MODE_WRITEONCE,       "pintool",
@@ -48,8 +48,8 @@ KNOB<std::string>   KnobEndMarker(KNOB_MODE_WRITEONCE,       "pintool",
  */
 INT32 Usage()
 {
-    cerr << "This tool prints out the number of dynamically executed " << endl <<
-            "instructions, basic blocks and threads in the application." << endl << endl;
+    cerr << "This tools is to study fault in Coherence communication between cores " << endl;
+            
 
     cerr << KNOB_BASE::StringKnobSummary() << endl;
 
@@ -68,22 +68,6 @@ VOID FunEndInstrumentation() {
 
 }
 
-
-/* ===================================================================== */
-// Analysis routines
-/* ===================================================================== */
-
-/*!
- * Increase counter of the executed basic blocks and instructions.
- * This function is called for every basic block when it is about to be executed.
- * @param[in]   numInstInBbl    number of instructions in the basic block
- * @note use atomic operations for multi-threaded applications
- */
-VOID CountBbl(UINT32 numInstInBbl)
-{
-    bblCount++;
-    insCount += numInstInBbl;
-}
 
 VOID EmitXMM(THREADID threadid, UINT32 regno, PIN_REGISTER* xmm)
 {
@@ -311,7 +295,7 @@ VOID Trace(TRACE trace, VOID *v)
 
 
 
-        BBL_InsertCall(bbl, IPOINT_BEFORE, (AFUNPTR)CountBbl, IARG_UINT32, BBL_NumIns(bbl), IARG_END);
+        
     }
 }
 
@@ -413,8 +397,8 @@ int main(int argc, char *argv[])
 
     if (!fileName.empty()) { out = new std::ofstream(fileName.c_str());}
 
-    if (KnobCount)
-    {
+    
+    
         // Register function to be called to instrument traces
         TRACE_AddInstrumentFunction(Trace, 0);
          filter.Activate();
@@ -424,7 +408,7 @@ int main(int argc, char *argv[])
         RTN_AddInstrumentFunction(Routine, 0);
         // Register function to be called when the application exits
         PIN_AddFiniFunction(Fini, 0);
-    }
+    
     
     cerr <<  "===============================================" << endl;
     cerr <<  "This application is instrumented by MyPinTool" << endl;
