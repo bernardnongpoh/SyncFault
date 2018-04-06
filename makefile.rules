@@ -17,14 +17,14 @@
 # This defines tests which run tools of the same name.  This is simply for convenience to avoid
 # defining the test name twice (once in TOOL_ROOTS and again in TEST_ROOTS).
 # Tests defined here should not be defined in TOOL_ROOTS and TEST_ROOTS.
-TEST_TOOL_ROOTS := SyncFault
+#TEST_TOOL_ROOTS := SyncFault
 
 # This defines the tests to be run that were not already defined in TEST_TOOL_ROOTS.
-TEST_ROOTS :=
+TEST_ROOTS := 
 
 # This defines the tools which will be run during the the tests, and were not already defined in
 # TEST_TOOL_ROOTS.
-TOOL_ROOTS :=
+TOOL_ROOTS := SyncFault 
 
 # This defines the static analysis tools which will be run during the the tests. They should not
 # be defined in TEST_TOOL_ROOTS. If a test with the same name exists, it should be defined in
@@ -35,13 +35,13 @@ TOOL_ROOTS :=
 SA_TOOL_ROOTS :=
 
 # This defines all the applications that will be run during the tests.
-APP_ROOTS :=
+APP_ROOTS :=	
 
 # This defines any additional object files that need to be compiled.
 OBJECT_ROOTS :=
 
 # This defines any additional dlls (shared objects), other than the pintools, that need to be compiled.
-DLL_ROOTS :=
+DLL_ROOTS := 
 
 # This defines any static libraries (archives), that need to be built.
 LIB_ROOTS :=
@@ -72,3 +72,19 @@ SANITY_SUBSET := $(TEST_TOOL_ROOTS) $(TEST_ROOTS)
 
 # This section contains the build rules for all binaries that have special build rules.
 # See makefile.default.rules for the default build rules.
+# Build intermediate object file
+
+
+$(OBJDIR)CacheLine$(OBJ_SUFFIX):CacheLine.cpp	CacheLine.h
+	$(CXX)	$(TOOL_CXXFLAGS)	$(COMP_OBJ)$@	$<
+
+$(OBJDIR)Cache$(OBJ_SUFFIX):Cache.cpp	Cache.h
+	$(CXX)	$(TOOL_CXXFLAGS)	$(COMP_OBJ)$@	$<
+
+$(OBJDIR)System$(OBJ_SUFFIX):System.cpp	System.h
+	$(CXX)	$(TOOL_CXXFLAGS)	$(COMP_OBJ)$@	$<
+
+
+#Build the tool as a dll (shared object)
+$(OBJDIR)SyncFault$(PINTOOL_SUFFIX):	$(OBJDIR)SyncFault.o	$(OBJDIR)CacheLine.o	$(OBJDIR)Cache.o	$(OBJDIR)System.o
+	$(CXX)	-shared	-Wl,--hash-style=sysv	$(PIN_ROOT)/intel64/runtime/pincrt/crtbeginS.o	-Wl,-Bsymbolic	-Wl,--version-script=$(PIN_ROOT)/source/include/pin/pintool.ver	-fabi-version=2	-o	${LINK_OUT}$@ $<	$(OBJDIR)Cache.o	$(OBJDIR)System.o	$(OBJDIR)CacheLine.o	-L$(PIN_ROOT)/intel64/runtime/pincrt	-L$(PIN_ROOT)/intel64/lib	-L$(PIN_ROOT)/intel64/lib-ext	-L$(PIN_ROOT)/extras/xed-intel64/lib	-lpin	-lxed	$(PIN_ROOT)/intel64/runtime/pincrt/crtendS.o	-lpin3dwarf	-ldl-dynamic	-nostdlib	-lstlport-dynamic	-lm-dynamic	-lc-dynamic	-lunwind-dynamic	

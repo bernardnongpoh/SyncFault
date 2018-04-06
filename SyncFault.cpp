@@ -7,8 +7,12 @@
 #include "pin.H"
 #include <iostream>
 #include <fstream>
+#include <cstdlib>
 #include "instlib.H"
 #include <iomanip>
+#include "System.h"
+
+
 /* ================================================================== */
 // Global variables 
 /* ================================================================== */
@@ -21,7 +25,7 @@ std::string endMarker;
 BOOL outOfROIPhase = false;
 
 
-
+System *sys;
 
 std::ostream * out = &cerr;
 LOCALVAR std::ofstream outs;
@@ -68,7 +72,7 @@ VOID FunEndInstrumentation() {
 
 }
 
-
+// Copy from Debug Trace file from Intel pintool sample application
 VOID EmitXMM(THREADID threadid, UINT32 regno, PIN_REGISTER* xmm)
 {
     //if (!Emit(threadid))
@@ -125,7 +129,14 @@ VOID ShowN(UINT32 n, VOID *ea)
 VOID EmitRead(THREADID threadid,ADDRINT ip,VOID * ea, UINT32 size)
 {
 
-    outs<<std::hex<<ip <<":"<<ea<<"\n";
+    sys->memAccess((ADDRINT)ea,'R',threadid);
+
+    // Read Here, we need IP address or effective address? I quess it is the effective address here
+
+
+
+
+   /* outs<<std::hex<<ip <<":"<<ea<<"\n";
     outs << "                                 Read ";
 
 
@@ -172,10 +183,18 @@ VOID EmitRead(THREADID threadid,ADDRINT ip,VOID * ea, UINT32 size)
         outs << " = *(UINT" << dec << size * 8 << hex << ")" << ea << endl;
         break;
     }
+    */
 
     //Flush();
 }
 
+
+// Record Write Operation
+VOID EmitWrite(THREADID threadid,ADDRINT ip,VOID * ea, UINT32 size)
+{
+    sys->memAccess((ADDRINT)ea,'W',threadid);
+   
+}
 
 
 string FormatAddress(ADDRINT address, RTN rtn)
@@ -214,6 +233,7 @@ string FormatAddress(ADDRINT address, RTN rtn)
     }
     return s;
 }
+
 
 
 
@@ -257,6 +277,19 @@ VOID InstructionTrace(TRACE trace, INS ins)
     // Get the filena,e
 
    // *out<<traceString<<"\n";
+
+ if (INS_IsMemoryWrite(ins) && INS_IsStandardMemop(ins))
+    {
+        if (INS_HasFallThrough(ins))
+        {
+            INS_InsertPredicatedCall(ins, IPOINT_AFTER, AFUNPTR(EmitWrite), IARG_THREAD_ID, IARG_MEMORYWRITE_SIZE, IARG_END);
+        }
+        if (INS_IsBranchOrCall(ins))
+        {
+            INS_InsertPredicatedCall(ins, IPOINT_TAKEN_BRANCH, AFUNPTR(EmitWrite), IARG_THREAD_ID, IARG_MEMORYWRITE_SIZE, IARG_END);
+        }
+    }
+
 
      if (INS_HasMemoryRead2(ins) && INS_IsStandardMemop(ins))
     {
@@ -360,6 +393,16 @@ VOID Fini(INT32 code, VOID *v)
     *out <<  "Number of basic blocks: " << bblCount  << endl;
     *out <<  "Number of threads: " << threadCount  << endl;
     *out <<  "===============================================" << endl;
+
+cout << "Accesses: " << sys->statistics.access << endl;
+   cout << "Hits: " << sys->statistics.hits << endl;
+   cout << "Misses: " << sys->statistics.access - sys->statistics.hits << endl;
+   cout << "Local reads: " << sys->statistics.local_reads << endl;
+   cout << "Local writes: " << sys->statistics.local_writes << endl;
+   cout << "Remote reads: " << sys->statistics.remote_reads << endl;
+   cout << "Remote writes: " << sys->statistics.remote_writes << endl;
+   cout << "Other-cache reads: " << sys->statistics.othercache_reads << endl;
+  
 }
 
 /*!
@@ -392,12 +435,16 @@ int main(int argc, char *argv[])
     }
 
     outs.open("out.log");
+
+   
     
     string fileName = KnobOutputFile.Value();
 
     if (!fileName.empty()) { out = new std::ofstream(fileName.c_str());}
 
-    
+    unsigned int arr_map[] = {0, 1};
+   vector<unsigned int> tid_map(arr_map, arr_map + 
+         sizeof(arr_map) / sizeof(unsigned int));
     
         // Register function to be called to instrument traces
         TRACE_AddInstrumentFunction(Trace, 0);
@@ -409,6 +456,13 @@ int main(int argc, char *argv[])
         // Register function to be called when the application exits
         PIN_AddFiniFunction(Fini, 0);
     
+    /* Memory System Setup Here */
+    // Need to count the number of miss-rate need to match with pintool cache analysis allcache.cpp
+        
+        sys = new System(tid_map,32,1024,32);  
+            
+
+
     
     cerr <<  "===============================================" << endl;
     cerr <<  "This application is instrumented by MyPinTool" << endl;
